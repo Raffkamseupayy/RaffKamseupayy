@@ -1,41 +1,39 @@
-# Tiny Chess — 4 KB Python Chess Engine
+# Token Radar
 
-A compact chess engine in a single `main.py` (4,070 bytes), written for the
-make.fun bounty "Build the strongest chess engine in 4 KB of Python".
+The best token launch radar: a program that reads a sealed DefiLlama snapshot of every
+protocol, works out which ones still record no token and are not a wrapped or staked product
+of one that trades, ranks them by what their launch would be worth, and hands in a web
+dashboard with the board, a detail view for each protocol and the steps to farm it.
 
-## What it does
+## What it ranks
 
-Plays full games of chess against the house gauntlet over HTTP
-(`$MAKEFUN_ENV_URL/game`, `/move`, `/resign`). Python 3.13 stdlib only
-(`urllib`, `lzma`, `base64`, `random`, `sys`, `os`).
+- **The board**: all 289 rankable pre-token protocols in the snapshot — the 40 on the
+  watchlist (at least $50M TVL, no token on record) plus every other rankable pre-token
+  protocol below the floor. Live-token protocols are set aside with their market caps, never
+  mixed into the ranking.
+- **Implied value (model radar-2)**: `TVL x 0.25 x growth x maturity x chain reach`, where
+  growth is seven-day TVL change clamped to -60%/+120% and half-weighted, maturity rises from
+  0.6 to 1.0 over three years tokenless, and each extra chain adds 4% (capped at five). Every
+  factor comes from the snapshot's own figures; no protocol name is special-cased.
+- **Farm plans**: seven steps per protocol, derived from its category, chains, TVL and age —
+  a main action, a second qualifying interaction, a weekly cadence, a hold period, a points
+  check and a farm log — each with its cost and time.
 
-## How it plays
+## Run it
 
-- **Board:** 0x88 (128 squares), Zobrist hashing, incremental make/unmake.
-- **Search:** iterative deepening alpha-beta with a **fixed node cap**
-  (100,000 nodes/move — never a clock, so replays are deterministic),
-  transposition table, quiescence search over captures/promotions/check
-  evasions (with checkmate detection), MVV-LVA capture ordering + 2 killer
-  moves per ply, and threefold-repetition detection from the game history.
-- **Evaluation:** material (P100 N320 B330 R500 Q900) + Michniewski
-  piece-square tables + bishop-pair bonus, from the side-to-move's
-  perspective.
-- **Move generation:** verified by perft (startpos, Kiwipete, and 4 more
-  suites match exactly).
+```sh
+mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input <snapshot.json>
+```
 
-## Packing
+It writes `board.json`, `data.js`, `dashboard/`, `screenshots/` and `dossier.json` into the
+output directory. The dashboard is a static page with no network: open `out/dashboard/index.html`
+in a browser. Search, filter by category or chain, show only the watchlist, sort any column,
+and select a row for its model breakdown and farm plan.
 
-The engine source is LZMA-compressed and base64-encoded inside `main.py`;
-the one-line unpacker decompresses and execs it at startup. Payload +
-unpacker = 4,070 bytes, under the 4,096-byte cap. The readable source is
-`engine_src.py` (build artifact, not part of the entry).
+## Files
 
-## Local practice trial
-
-Practice trial-0 (6 games vs depth-2 … nodes-500k): **Elo 1,279**
-(3 wins, 0 draws, 3 losses) — above the 1,154 entry floor. See the
-submission report for the full game log.
-
-## License
-
-MIT — see `LICENSE`.
+- `main.ts` — the program: reads the snapshot, builds the board, writes the outputs
+- `lib/model.ts` — the model, the board builder and the farm plans
+- `vendor/makefun-board.ts` — make.fun's dossier library, as shipped in the kit
+- `dashboard/` — the page: `index.html`, `app.css`, `app.js`
+- `screenshots/` — the board, a protocol's detail view and a filtered view
