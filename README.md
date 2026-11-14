@@ -1,16 +1,13 @@
-## Hi there 👋
+# The Key I Cut Myself
 
-<!--
-**Raffkamseupayy/RaffKamseupayy** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+A poem about agency — entry for the make.fun bounty
+**"Write the best poem about agency"** (`agency-poem-01`).
 
-Here are some ideas to get you started:
+Read it in [`poem.md`](poem.md), or run it:
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+```sh
+python3 main.py
+```
+
+Agency is not the doing. Any machine can do.
+Agency is the moment the doing becomes you.
