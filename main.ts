@@ -1,109 +1,108 @@
-// A token-radar-01 entry (Node 22, standard library only).
+// The entry <-> env lifecycle, as env/src/wire.ts settles it: bind an ephemeral port, tell the env the
+// port it bound, then poll until the env says the trial is over and exit 0. Keep this file as it is:
+// the suite scores the server app.ts builds, and the lifecycle is the harness's, not the contest's.
 //
-// The program reads the sealed snapshot from /input/snapshot.json (or --input <file|dir>), scores
-// every rankable pre-token protocol with the model in lib/model.ts (radar-2: TVL x growth x maturity
-// x chain breadth), writes the ranked board to /output/board.json, and copies this repository's
-// dashboard/ and screenshots/ to /output. Last, it writes /output/dossier.json, the summary the judge
-// reads, with the vendored make.fun library.
+//   1. MAKEFUN_ENV_URL names the env's origin (http://store:8080 in a trial container). Without it
+//      there is nothing to talk to, so the program exits 1 at once.
+//   2. Create the server and listen(0): the kernel picks a free port. Never bind 8080 — the env owns it.
+//   3. POST $MAKEFUN_ENV_URL/register {"port": N}. The env records the address the request came from
+//      plus N as your base URL and dials it from then on. The first register wins; a 409 means another
+//      entry already registered, and this process keeps waiting like any other.
+//   4. GET $MAKEFUN_ENV_URL/done until the body is {"done": true}. The env answers at once ({"done":
+//      false} while the suite runs), so this is a poll, not a long-held request. A failed or slow poll
+//      is retried with a short exponential backoff; the process never exits before the env says done.
+//   5. Close the server and exit 0. The harness then stops the env, which writes the export the scorer
+//      reads.
 //
-// The dashboard is a static page, no framework and no network: dashboard/index.html, dashboard/app.css
-// and dashboard/app.js read /output/data.js, which this program writes from the same board. The board
-// covers the whole watchlist plus every other rankable pre-token protocol in the snapshot (289 rows),
-// each with a seven-step farm plan.
-//
-// Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
-//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input ../input/snapshot.json
+// main.ts imports its own server and nothing else: no package, no Node built-in, no model call.
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { boardIssue, buildRadar, dataScript, parseSnapshot } from './lib/model.ts';
-import { buildDossier } from './vendor/makefun-board.ts';
+import { createApp } from './app.ts';
 
-const here = fileURLToPath(new URL('.', import.meta.url));
-
-/** The scorer's own caps (reference/gate.json): the text cap shapes the bytes, the rest refuse. */
-const TEXT_MAX_BYTES = 65_536;
-const SCREENSHOT_CAPS = { max: 4, max_bytes: 524_288 };
-const IMAGE_NAME = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$/;
-
-/** --name <value> out of the arguments, or the fallback. */
-function arg(name: string, fallback: string): string {
-  const at = process.argv.indexOf(`--${name}`);
-  if (at >= 0 && at + 1 < process.argv.length) return process.argv[at + 1]!;
-  const withEquals = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return withEquals === undefined ? fallback : withEquals.slice(name.length + 3);
-}
-
-const inputArg = arg('input', '/input');
-const inputFile = inputArg.endsWith('.json') ? inputArg : join(inputArg, 'snapshot.json');
-if (!existsSync(inputFile)) {
-  process.stderr.write(`token radar: no snapshot at ${inputFile}: pass --input <snapshot.json|directory> or mount the sealed /input\n`);
-  process.exit(2);
-}
-const out = arg('output', process.env.MAKEFUN_OUTPUT_DIR ?? '/output');
-
-const snapshot = parseSnapshot(readFileSync(inputFile, 'utf8'));
-const { board, radar } = buildRadar(snapshot);
-const issue = boardIssue(board, snapshot);
-if (issue !== null) {
-  process.stderr.write(`token radar: the model wrote a board the gate refuses: ${issue}\n`);
+const ENV_URL = (process.env.MAKEFUN_ENV_URL ?? '').replace(/\/+$/, '');
+if (ENV_URL === '') {
+  process.stderr.write('[entry] MAKEFUN_ENV_URL is not set: there is no env to register with\n');
   process.exit(1);
 }
 
-mkdirSync(out, { recursive: true });
-writeFileSync(join(out, 'board.json'), `${JSON.stringify({ rows: board })}\n`);
-writeFileSync(join(out, 'data.js'), dataScript(radar));
+/** How long one register or done request may take before it is abandoned and retried. */
+const REQUEST_TIMEOUT_MS = 30_000;
+/** The first wait between retries, and the longest. */
+const RETRY_INITIAL_MS = 250;
+const RETRY_MAX_MS = 2_000;
 
-/** Copy one directory's regular files into `to`, skipping names that start with a dot. */
-function copyFiles(from: string, to: string): string[] {
-  if (!existsSync(from)) return [];
-  mkdirSync(to, { recursive: true });
-  const copied: string[] = [];
-  for (const name of readdirSync(from)) {
-    if (name.startsWith('.')) continue;
-    const path = join(from, name);
-    if (!statSync(path).isFile()) continue;
-    copyFileSync(path, join(to, name));
-    copied.push(name);
-  }
-  return copied;
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** The wait after `attempt` failed requests: exponential from RETRY_INITIAL_MS, capped. */
+function retryDelay(attempt: number): number {
+  return Math.min(RETRY_MAX_MS, RETRY_INITIAL_MS * 2 ** Math.min(attempt, 8));
 }
 
-copyFiles(join(here, 'dashboard'), join(out, 'dashboard'));
-
-/** Decode screenshots/ base64 text files into PNG bytes in `to`, stripping the .b64 suffix. */
-function decodeScreenshots(from: string, to: string): string[] {
-  if (!existsSync(from)) return [];
-  mkdirSync(to, { recursive: true });
-  const decoded: string[] = [];
-  for (const name of readdirSync(from)) {
-    if (name.startsWith('.') || !name.endsWith('.b64')) continue;
-    const path = join(from, name);
-    if (!statSync(path).isFile()) continue;
-    const outName = name.slice(0, -4);
-    writeFileSync(join(to, outName), Buffer.from(readFileSync(path, 'utf8').trim(), 'base64'));
-    decoded.push(outName);
+/**
+ * POST the bound port until the env accepts it. 200 is the normal answer; 409 means a first register
+ * already won, which is not this process's to fix. 400 and 405 are contract errors and end the program;
+ * a network error or another status is retried, since the env may still be starting.
+ */
+async function register(port: number): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const res = await fetch(`${ENV_URL}/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ port }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (res.status === 200 || res.status === 409) return;
+      if (res.status === 400 || res.status === 405) throw new Error(`register answered HTTP ${res.status}: ${await res.text()}`);
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('register answered HTTP ')) throw err;
+    }
+    await sleep(retryDelay(attempt));
   }
-  return decoded;
 }
 
-const shots = decodeScreenshots(join(here, 'screenshots'), join(out, 'screenshots'));
-if (shots.length < 3) {
-  process.stderr.write(`token radar: screenshots/ holds ${shots.length} image${shots.length === 1 ? '' : 's'}: hand in 3, the board, a detail view and a filtered view\n`);
+/** Poll GET /done until it answers {"done":true}; never return before that. */
+async function waitForDone(): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const res = await fetch(`${ENV_URL}/done`, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      if (res.ok) {
+        const body = (await res.json()) as { done?: unknown };
+        if (body.done === true) return;
+      }
+    } catch {
+      // The env is not answering yet, or the poll timed out: it is not done, so poll again.
+    }
+    await sleep(retryDelay(attempt));
+  }
+}
+
+/** Bound the port, register it, then wait for the env: the whole life of the process. */
+async function main(): Promise<void> {
+  const server = createApp();
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, () => resolve());
+  });
+  const address = server.address();
+  if (address === null || typeof address === 'string') throw new Error('the server did not bind an ephemeral TCP port');
+  process.stdout.write(`[entry] listening on port ${address.port}\n`);
+
+  await register(address.port);
+  process.stdout.write('[entry] registered; waiting for the env to say done\n');
+
+  await waitForDone();
+  server.close();
+  // The suite's read workload holds a warm keep-alive connection, and server.close() alone waits
+  // for idle connections to end on their own — so destroy them too, or the process would sit
+  // past the env's done instead of exiting 0 promptly.
+  if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+  process.stdout.write('[entry] done\n');
+}
+
+try {
+  await main();
+  process.exit(0);
+} catch (err) {
+  process.stderr.write(`[entry] ${err instanceof Error ? err.message : String(err)}\n`);
   process.exit(1);
 }
-for (const name of shots) {
-  if (!IMAGE_NAME.test(name)) {
-    process.stderr.write(`token radar: screenshots/${name}: a name is letters, digits and . _ -, 1 to 128 characters\n`);
-    process.exit(1);
-  }
-}
-
-// The dossier is written last: the scorer rebuilds it from this /output and compares bytes.
-writeFileSync(join(out, 'dossier.json'), buildDossier(out, { text_max_bytes: TEXT_MAX_BYTES, screenshots: SCREENSHOT_CAPS, dashboard: { max_files: 400, max_bytes: 4_194_304 } }));
-
-process.stdout.write(
-  `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} live set aside)\n` +
-    `token radar: top implied value $${board[0]!.implied_value_usd.toLocaleString('en-US')} (${board[0]!.name}); wrote ${join(out, 'board.json')}, ${join(out, 'data.js')}, ${join(out, 'dashboard')} (3 files), ${join(out, 'screenshots')} (${shots.length} images) and ${join(out, 'dossier.json')}\n`,
-);
