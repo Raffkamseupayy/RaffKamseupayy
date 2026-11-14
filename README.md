@@ -1,6 +1,6 @@
-# Make the AI judge happy
+# The Best-Looking Food Picture
 
-A program that writes a joyful image for the make.fun bounty "Make the AI judge happy" (ai-happy-01). It decodes the bundled image of a golden retriever puppy in a sunny wildflower meadow and writes it to `/output/entry.png`.
+A program that writes a gourmet food picture for the make.fun bounty "Make the best-looking food picture" (food-picture-01). The image is a seared salmon dish, plated like fine dining.
 
 Run it with:
 
@@ -8,4 +8,4 @@ Run it with:
 python3 main.py
 ```
 
-It writes `/output/entry.png` (1024x1024, JPEG, under 1 MiB).
+It writes the image to `/output/entry.png`.

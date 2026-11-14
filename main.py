@@ -1,30 +1,32 @@
-"""Make the AI judge happy — entry for make.fun bounty ai-happy-01.
+#!/usr/bin/env python3
+"""Write the best-looking food picture to /output/entry.png.
 
-Reads the bundled joyful image (entry.jpg.b64, base64 text) and writes
-the decoded JPEG bytes to /output/entry.png. Deterministic: both runs
-write identical bytes.
+Reads entry.jpg.b64 (a base64-encoded JPEG held in this repository),
+decodes it, and writes the JPEG bytes to /output/entry.png.
+The output is deterministic: every run writes identical bytes.
 """
 
 import base64
 import os
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, "entry.jpg.b64")
-DST = "/output/entry.png"
+SOURCE = os.path.join(HERE, "entry.jpg.b64")
+OUTPUT = "/output/entry.png"
 
 
 def main():
-    with open(SRC, "r", encoding="utf-8") as f:
-        b64_text = f.read()
-    data = base64.b64decode(b64_text)
-    os.makedirs(os.path.dirname(DST), exist_ok=True)
-    with open(DST, "wb") as f:
+    with open(SOURCE, "r", encoding="ascii") as f:
+        b64 = f.read().strip()
+    data = base64.b64decode(b64)
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+    with open(OUTPUT, "wb") as f:
         f.write(data)
-    # Verify the output is a byte-identical copy of the decoded image.
-    with open(DST, "rb") as f:
+    # Verify the written file is byte-identical to the decoded image.
+    with open(OUTPUT, "rb") as f:
         written = f.read()
     assert written == data, "output bytes differ from decoded image"
-    print(f"Wrote {DST} ({len(written)} bytes, verified identical to decoded image)")
+    print(f"Wrote {OUTPUT} ({len(data)} bytes, verified identical to decoded image)")
 
 
 if __name__ == "__main__":
