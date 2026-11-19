@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leonida Trophy Guide — GTA 6, all 55 trophies</title>
+<meta name="description" content="Offline guide and tracker for the 55 PlayStation 5 trophies of Grand Theft Auto VI: checklist, roadmap to the platinum, missables, and a cited guide for every trophy.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="brand">
+      <p class="kicker">Grand Theft Auto VI &middot; PlayStation 5</p>
+      <h1>Leonida Trophy Guide</h1>
+      <p class="tagline">All 55 trophies — 1 platinum, 2 gold, 6 silver, 46 bronze — with a cited guide for each, a roadmap to the platinum, and a tracker that saves in your browser. Works fully offline.</p>
+    </div>
+    <div class="progress-card" id="progressCard" aria-label="Overall progress">
+      <p class="big-count"><span id="earnedCount">0</span><span class="of"> / 55</span></p>
+      <p class="big-label">trophies earned</p>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <p class="progress-note" id="progressNote">Platinum: Vice Got a Price!</p>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs" aria-label="Guide sections">
+    <button type="button" data-view="checklist" id="tabChecklist">Checklist</button>
+    <button type="button" data-view="roadmap" id="tabRoadmap">Roadmap</button>
+    <button type="button" data-view="missables" id="tabMissables">Missables</button>
+  </nav>
+</header>
+
+<main>
+  <section class="stats" id="stats" aria-label="Progress by grade and kind"></section>
+
+  <section class="controls" id="controls" aria-label="Filters and settings">
+    <label class="search-label">Search <input id="searchBox" type="search" placeholder="Trophy name or description…" autocomplete="off"></label>
+    <label>Kind
+      <select id="kindFilter">
+        <option value="all">All kinds</option>
+        <option value="story">Story</option>
+        <option value="missable">Missable</option>
+        <option value="collectibles">Collectibles</option>
+        <option value="activities">Activities</option>
+        <option value="side">Strangers &amp; contacts</option>
+        <option value="completion">100% completion</option>
+      </select>
+    </label>
+    <label>Grade
+      <select id="gradeFilter">
+        <option value="all">All grades</option>
+        <option value="platinum">Platinum</option>
+        <option value="gold">Gold</option>
+        <option value="silver">Silver</option>
+        <option value="bronze">Bronze</option>
+      </select>
+    </label>
+    <label class="check-label"><input id="hideEarned" type="checkbox"> Hide earned</label>
+    <label class="check-label spoiler-label"><input id="spoilerToggle" type="checkbox"> Spoiler-safe: hide story trophies until earned</label>
+    <span class="spacer"></span>
+    <button type="button" id="exportBtn">Export progress</button>
+    <label class="import-label">Import progress <input id="importFile" type="file" accept="application/json,.json"></label>
+    <button type="button" id="resetBtn" class="quiet">Reset</button>
+  </section>
+  <p class="hint" id="listHint"></p>
+
+  <div class="layout">
+    <section class="list-col" aria-label="Trophy list">
+      <ol class="trophy-list" id="trophyList"></ol>
+      <p class="empty" id="emptyNote" hidden>No trophies match these filters. Clear the search or widen the filters.</p>
+    </section>
+    <aside class="detail-col" id="detailPane" aria-label="Trophy guide"></aside>
+  </div>
+
+  <section class="page-col" id="roadmapPage" hidden aria-label="Roadmap to the platinum"></section>
+  <section class="page-col" id="missablesPage" hidden aria-label="Missable trophies"></section>
+
+  <footer class="footnote">
+    <h2>About the sources</h2>
+    <p>Names, descriptions and grades are the official PlayStation 5 list as published, via Exophase, agreeing with PSNProfiles on every name, description and grade. PSN progress targets (such as 42 Shooting Range challenges) come from PSNProfiles. Every guide is written in our own words for this entry and cites its sources beside it. The game released 2026-11-19: where a place or step is not pinned down, the guide says so plainly instead of inventing a location. No Rockstar logo, artwork or game screenshot is used anywhere in this guide.</p>
+    <p>Progress is stored only in this browser (localStorage). Export downloads a JSON file; import reads one back. Nothing is sent anywhere: this guide makes no network requests at all.</p>
+  </footer>
+</main>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
